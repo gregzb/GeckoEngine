@@ -9,6 +9,7 @@
 
 # include "chess_settings.hpp"
 # include "chess_board.hpp"
+# include "precalculated.hpp"
 
 chess_settings settings = {};
 bool should_stop = false;
@@ -125,56 +126,12 @@ int handle_uci_input() {
 int main(int argc, char **argv)
 {
 
+    precalculate();
+
+    std::cout << "The chess board uses " << sizeof(chess_board) << " bytes" << std::endl;
+
     chess_board chess;
     chess.print();
-
-    bitboard b = 0;
-    set(b, 1, b3);
-    set(b, 1, e4);
-
-    // print(b);
-
-    // b = 0;
-    // set(b, 1, 2, 1);
-    // set(b, 1, 3, 4);
-
-    // print(b);
-
-    std::vector<bitboard> verticals, horizontals; // verticles indexed by file, horizontals indexed by col
-    generate_rook_masks(verticals, horizontals);
-    // print(horizontals[2]);
-
-    std::vector<bitboard> diagonals, anti_diagonals; //rank + file for diag, rank - file + 7 for anti diag
-    generate_bishop_masks(diagonals, anti_diagonals); 
-
-    // print(diagonals[3+2]);
-    // print(anti_diagonals[3-2+7]);
-
-    populate_masks(verticals, horizontals, diagonals, anti_diagonals);
-
-    calculate_first_rank_attacks();
-    // print(first_rank_attacks[1][2]);
-
-    calculate_a_file_attacks();
-    // print(a_file_attacks[0][2]);
-
-    populate_knight_attacks();
-    populate_king_attacks();
-    populate_pawn_attacks();
-
-    // bitboard all_pieces = chess.piece_colors[0] | chess.piece_colors[1];
-    // bitboard queen_attack = 0;
-
-    // // std::cout << all_pieces << std::endl;
-    // queen_attack |= diagonal_attacks(all_pieces, e4);
-    // queen_attack |= anti_diagonal_attacks(all_pieces, e4);
-    // queen_attack |= rank_attacks(all_pieces, e4);
-    // queen_attack |= file_attacks(all_pieces, e4);
-
-
-
-
-
 
     // int times_to_gen = 10'000'000;
 
@@ -186,17 +143,7 @@ int main(int argc, char **argv)
     // std::chrono::duration<double> elapsed_seconds = end-start;
     // std::cout << "took: " << elapsed_seconds.count() << "s to generate moves " << times_to_gen << " times" << std::endl;
 
-
-
-
-
-
     chess.iterate_over_moves();
-    
-
-    // print(queen_attack);
-
-    // handle_uci_input();
 
     return 0;
 }
