@@ -129,15 +129,22 @@ int main(int argc, char **argv)
     precalculate();
 
     std::cout << "The chess board uses " << sizeof(chess_board) << " bytes" << std::endl;
+    
+    std::string fen = "";
 
-    chess_board chess;
+    // std::string fen = "r3kb1r/ppp1pppp/3q1n2/3PN3/3QP3/2N5/PPP2PPP/R3K2R b KQkq - 2 11";
+
+    // std::cout << "1 " << std::endl;
+
+    chess_board chess(fen);
+    // std::cout << "2 " << std::endl;
     chess.print();
 
-    // int times_to_gen = 10'000'000;
+    // int times_to_gen = 1'000'000;
 
     // auto start = std::chrono::steady_clock::now();
     // for (int i = 0; i < times_to_gen; i++) {
-    //     chess.iterate_over_moves(WHITE);
+    //     chess.iterate_over_moves();
     // }
     // auto end = std::chrono::steady_clock::now();
     // std::chrono::duration<double> elapsed_seconds = end-start;

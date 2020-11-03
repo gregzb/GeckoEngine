@@ -4,6 +4,8 @@
 #include <utility>
 #include <iostream>
 #include <bitset>
+#include <vector>
+#include <string>
 
 using u_char = unsigned char;
 using u_int = unsigned int;
@@ -92,6 +94,23 @@ inline void print(bitboard board)
 
     std::cout << tmp << std::endl;
 }
+
+inline std::vector<std::string> split_string(std::string str, std::string delimiter) {
+    std::vector<std::string> out;
+
+    auto start = 0U;
+    auto end = str.find(delimiter);
+    while (end != std::string::npos)
+    {
+        out.push_back(str.substr(start, end - start) );
+        start = end + delimiter.length();
+        end = str.find(delimiter, start);
+    }
+
+    out.push_back(str.substr(start, end));
+    return out;
+}
+
 
 // using pos = std::pair<char, char>;
 // inline int get_idx(int rank, int file) {
