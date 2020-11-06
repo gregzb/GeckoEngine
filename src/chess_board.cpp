@@ -86,7 +86,9 @@ chess_board::chess_board()
     add_piece(WHITE, PAWN, g2);
     add_piece(WHITE, PAWN, h2);
 
-    add_piece(BLACK, QUEEN, h4);
+    add_piece(BLACK, BISHOP, h4);
+
+    // add_piece(BLACK, QUEEN, h4);
 
     add_piece(BLACK, ROOK, a8);
     add_piece(BLACK, KNIGHT, b8);
@@ -374,28 +376,72 @@ bitboard chess_board::generate_protected_board(enum_color side)
     return out;
 }
 
-void chess_board::iterate_over_moves()
-{
-    // for castling, separate it from board position - if doable, then manually add it? even, consider before?
+bool chess_board::king_in_check(enum_color side) {
+    enum_color other_side = (enum_color) (side ^ 1);
+    bitboard king_piece = piece_colors[side] & pieces[KING];
+    enum_square king_square = (enum_square) __builtin_ctzll(king_piece);
+
+    bitboard all_pieces = piece_colors[0] | piece_colors[1];
+    bitboard rook_attacks = rank_attacks(all_pieces, king_square) | file_attacks(all_pieces, king_square);
+    bitboard bishop_attacks = diagonal_attacks(all_pieces, king_square) | anti_diagonal_attacks(all_pieces, king_square);
+
+    return (pawn_diag_attacks_lookup[king_square] & pawn_rank_lookup[other_side][king_square] & piece_colors[other_side] & pieces[PAWN]) | 
+    (rook_attacks & piece_colors[other_side] & pieces[ROOK]) | 
+    (bishop_attacks & piece_colors[other_side] & pieces[BISHOP]) | 
+    ((rook_attacks | bishop_attacks) & piece_colors[other_side] & pieces[QUEEN]) |
+    (knight_attacks_lookup[king_square] & piece_colors[other_side] & pieces[KNIGHT]);
+}
+
+ull chess_board::play_regular_attacks(enum_piece pt, enum_square loc, bitboard attacks, bool in_check) {
+    ull ret = 0;
+    for (int atk_pos = -1; attacks;)
+    {
+        atk_pos += next_bit(attacks);
+        enum_square atk_loc = (enum_square)atk_pos;
+
+        ret += play_regular_move(pt, {loc, atk_loc}, in_check);
+    }
+    return ret;
+}
+
+ull chess_board::play_regular_move(enum_piece pt, chess_move move, bool in_check) {
+    chess_board copy = *this;
+
+    enum_color side = (enum_color)(!!(copy.data & BLACK_TURN));
+
+    copy.en_passant = 0;
+    copy.clear_loc(move.to);
+    copy.remove_piece(side, pt, move.from);
+    copy.add_piece(side, pt, move.to);
+
+    // copy.print();
+
+    // bitboard attacked = copy.generate_protected_board((enum_color) (1-(int)side));
+    // if (attacked & copy.pieces[KING] & copy.piece_colors[side]) return 0;
+    if (copy.king_in_check(side)) return 0;
+
+    return 1;
+}
+
+void chess_board::iterate_over_moves() {
     enum_color side = (enum_color)(!!(data & BLACK_TURN));
-    int total_moves = 0;
+    ull total_moves = 0;
     bitboard all_pieces = piece_colors[0] | piece_colors[1];
 
-    bitboard attacked = generate_protected_board((enum_color)(1 - side));
-    bool in_check_before = attacked & (pieces[KING] & piece_colors[side]); // maybe check popcount == 1
-    // ::print(generate_protected_board((enum_color)(1 - side)));
+    // bitboard attacked = generate_protected_board((enum_color)(1 - side));
+    // bool in_check_before = attacked & (pieces[KING] & piece_colors[side]);
 
-    if (!in_check_before)
-    {
-        for (int dir = 0; dir < 2; dir++)
-        {
+    bool in_check_before = king_in_check(side);
+    // bool in_check_before = false;
 
-            //king is 0, queen is 1
+    //CASTLING - DETECT WITH AN IF IG? OR MULTIPLY BY 0 ISH
 
-            //if can castle on that side, and no pieces in between, and no checks in the way
-            if ((data & CASTLE[side][dir]) && (!(all_pieces & CASTLE_IN_BETWEEN[side][dir])) && (!(attacked & CASTLE_CHECK[side][dir])))
-            {
-                total_moves += play_move(KING, {e5, (enum_square)(e5 + (dir * 2 - 1) * (-2))}, true, in_check_before, ' ');
+    if (!in_check_before) {
+        for (int dir = 0; dir < 2; dir++) {
+            // king is 0, queen is 1
+
+            if ((data & CASTLE[side][dir]) && (!(all_pieces & CASTLE_IN_BETWEEN[side][dir])) && (!(attacked & CASTLE_CHECK[side][dir]))) {
+                //total_moves += play_castle();
             }
         }
     }
@@ -413,20 +459,23 @@ void chess_board::iterate_over_moves()
         attacks &= (piece_colors[1 - side] | en_passant);
 
         bitboard step = (pawn_step_attacks_lookup[loc] & (~all_pieces));
-        step |= (!!step) * (pawn_full_step_attacks_lookup[loc] & (~all_pieces));
+        // step |= (!!step) * (pawn_full_step_attacks_lookup[loc] & (~all_pieces)); // second step is a special case
 
         attacks |= step;
 
         attacks &= pawn_rank_lookup[side][loc];
         attacks &= ~piece_colors[side];
 
-        for (int atk_pos = -1; attacks;)
-        {
-            atk_pos += next_bit(attacks);
-            enum_square atk_loc = (enum_square)atk_pos;
+        total_moves += play_regular_attacks(PAWN, loc, attacks, in_check_before);
 
-            total_moves += play_move(PAWN, {loc, atk_loc}, false, in_check_before, ' ');
-        }
+        //1. Create specia
+
+
+        // FOR EACH, MASK TO SPECIAL ATTACK, AND IF SPECIAL ATTACKING, MARK EN PASSANT SQUARE
+        // DETECT EN PASSANT SEPARATELY
+        // NEITHER SHOULD NEED IFS
+
+        // PROMOTING AT END RANK? - MAYBE ALSO MASK PER SIDE, UNMASK IT FOR REGULAR STEP?
     }
 
     bitboard rooks = pieces[ROOK] & piece_colors[side];
@@ -441,13 +490,7 @@ void chess_board::iterate_over_moves()
         attacks |= file_attacks(all_pieces, loc);
         attacks &= ~piece_colors[side];
 
-        for (int atk_pos = -1; attacks;)
-        {
-            atk_pos += next_bit(attacks);
-            enum_square atk_loc = (enum_square)atk_pos;
-
-            total_moves += play_move(ROOK, {loc, atk_loc}, false, in_check_before, ' ');
-        }
+        total_moves += play_regular_attacks(ROOK, loc, attacks, in_check_before);
 
         // int attack_cnt = __builtin_popcountl(attacks);
         // total_moves += attack_cnt;
@@ -465,13 +508,7 @@ void chess_board::iterate_over_moves()
         attacks |= anti_diagonal_attacks(all_pieces, loc);
         attacks &= ~piece_colors[side];
 
-        for (int atk_pos = -1; attacks;)
-        {
-            atk_pos += next_bit(attacks);
-            enum_square atk_loc = (enum_square)atk_pos;
-
-            total_moves += play_move(BISHOP, {loc, atk_loc}, false, in_check_before, ' ');
-        }
+        total_moves += play_regular_attacks(BISHOP, loc, attacks, in_check_before);
         // int attack_cnt = __builtin_popcountll(attacks);
         // total_moves += attack_cnt;
     }
@@ -487,13 +524,7 @@ void chess_board::iterate_over_moves()
         attacks |= knight_attacks_lookup[loc];
         attacks &= ~piece_colors[side];
 
-        for (int atk_pos = -1; attacks;)
-        {
-            atk_pos += next_bit(attacks);
-            enum_square atk_loc = (enum_square)atk_pos;
-
-            total_moves += play_move(KNIGHT, {loc, atk_loc}, false, in_check_before, ' ');
-        }
+        total_moves += play_regular_attacks(KNIGHT, loc, attacks, in_check_before);
         // int attack_cnt = __builtin_popcountll(attacks);
         // total_moves += attack_cnt;
     }
@@ -512,13 +543,7 @@ void chess_board::iterate_over_moves()
         attacks |= file_attacks(all_pieces, loc);
         attacks &= ~piece_colors[side];
 
-        for (int atk_pos = -1; attacks;)
-        {
-            atk_pos += next_bit(attacks);
-            enum_square atk_loc = (enum_square)atk_pos;
-
-            total_moves += play_move(QUEEN, {loc, atk_loc}, false, in_check_before, ' ');
-        }
+        total_moves += play_regular_attacks(QUEEN, loc, attacks, in_check_before);
         // int attack_cnt = __builtin_popcountll(attacks);
         // total_moves += attack_cnt;
     }
@@ -534,130 +559,298 @@ void chess_board::iterate_over_moves()
         attacks |= king_attacks_lookup[loc];
         attacks &= ~piece_colors[side];
 
-        for (int atk_pos = -1; attacks;)
-        {
-            atk_pos += next_bit(attacks);
-            enum_square atk_loc = (enum_square)atk_pos;
-
-            total_moves += play_move(KING, {loc, atk_loc}, false, in_check_before, ' ');
-        }
+        total_moves += play_regular_attacks(KING, loc, attacks, in_check_before);
 
         // int attack_cnt = __builtin_popcountll(attacks);
         // total_moves += attack_cnt;
     }
-
-    // std::cout << "Found " << total_moves << " legal moves for side " << side << std::endl;
-    // std::cout << "In Check: " << in_check_before << " | Checkmated: " << (in_check_before && total_moves == 0) << " | Stalemate: " << (!in_check_before && total_moves == 0) << std::endl;
+    // std::cout << total_moves << " available moves, in check: " << in_check_before << ", in mate: " << (in_check_before && total_moves == 0)  << std::endl;
 }
 
-// only accepts legal moves!, check if move is legal earlier, except for into check, it should deal w/ that!
-ull chess_board::play_move(enum_piece piece_type, chess_move move, bool special, bool in_check, char promo)
-{
-    chess_board copy = *this;
+// void chess_board::iterate_over_moves()
+// {
+//     // for castling, separate it from board position - if doable, then manually add it? even, consider before?
+//     enum_color side = (enum_color)(!!(data & BLACK_TURN));
+//     int total_moves = 0;
+//     bitboard all_pieces = piece_colors[0] | piece_colors[1];
 
-    bool move_done = false;
+//     bitboard attacked = generate_protected_board((enum_color)(1 - side));
+//     bool in_check_before = attacked & (pieces[KING] & piece_colors[side]); // maybe check popcount == 1
+//     // ::print(generate_protected_board((enum_color)(1 - side)));
 
-    copy.en_passant = 0;
-    enum_color side = (enum_color)(!!(copy.data & BLACK_TURN));
-    int from_rank, to_rank;
-    bitboard attacked;
-    bool in_check_after;
-    switch (piece_type)
-    {
-    case PAWN:
-        from_rank = move.from >> 3;
-        to_rank = move.to >> 3;
-        if (std::max(from_rank, to_rank) - std::min(from_rank, to_rank) == 2)
-            set(copy.en_passant, 1, (from_rank + to_rank) / 2, move.from & 7);
-        switch (to_rank)
-        {
-        case 0:
-        case 7:
-            copy.clear_loc(move.to);
-            copy.remove_piece(side, PAWN, move.from);
-            copy.add_piece(side, QUEEN, move.to); // queen only for now
-            move_done = true;
+//     if (!in_check_before)
+//     {
+//         for (int dir = 0; dir < 2; dir++)
+//         {
 
-            attacked = copy.generate_protected_board((enum_color)(1 - side));
-            in_check_after = attacked & (copy.pieces[KING] & copy.piece_colors[side]);
-            return 1 - in_check_after;
+//             //king is 0, queen is 1
 
-            break;
-        default:
-            break;
-        }
-        break;
-    case KNIGHT:
-        break;
-    case BISHOP:
-        break;
-    case ROOK:
-        switch (move.from)
-        {
-        case a1:
-            copy.data &= ~(CASTLE[0][1]);
-            break;
-        case h1:
-            copy.data &= ~(CASTLE[0][0]);
-            break;
-        case a8:
-            copy.data &= ~(CASTLE[1][1]);
-            break;
-        case h8:
-            copy.data &= ~(CASTLE[1][0]);
-            break;
-        default:
-            break;
-        }
-        break;
-    case QUEEN:
-        break;
-    case KING:
-        if (special)
-        {
-            switch (move.to)
-            {
-            case g1:
-                copy.remove_piece(side, ROOK, h1);
-                copy.add_piece(side, ROOK, f1);
-                break;
-            case c1:
-                copy.remove_piece(side, ROOK, a1);
-                copy.add_piece(side, ROOK, d1);
-                break;
-            case g8:
-                copy.remove_piece(side, ROOK, h8);
-                copy.add_piece(side, ROOK, f8);
-                break;
-            case c8:
-                copy.remove_piece(side, ROOK, a8);
-                copy.add_piece(side, ROOK, d8);
-                break;
-            default:
-                break;
-            }
-        }
-        copy.data &= ~(CASTLE[side][0]);
-        copy.data &= ~(CASTLE[side][1]);
-        break;
-    default:
-        break;
-    }
+//             //if can castle on that side, and no pieces in between, and no checks in the way
+//             if ((data & CASTLE[side][dir]) && (!(all_pieces & CASTLE_IN_BETWEEN[side][dir])) && (!(attacked & CASTLE_CHECK[side][dir])))
+//             {
+//                 total_moves += play_move(KING, {e5, (enum_square)(e5 + (dir * 2 - 1) * (-2))}, true, in_check_before, ' ');
+//             }
+//         }
+//     }
 
-    if (!move_done)
-    {
-        copy.remove_piece(side, piece_type, move.from);
-        copy.add_piece(side, piece_type, move.to);
-    }
+//     bitboard pawns = pieces[PAWN] & piece_colors[side];
+//     for (int current_pos = -1; pawns;)
+//     {
+//         current_pos += next_bit(pawns);
+//         enum_square loc = (enum_square)current_pos;
 
-    attacked = copy.generate_protected_board((enum_color)(1 - side));
-    in_check_after = attacked & (copy.pieces[KING] & copy.piece_colors[side]);
-    return 1 - in_check_after;
+//         bitboard attacks = 0;
 
-    // copy.data ^= BLACK_TURN;
+//         // do attack
+//         attacks |= pawn_diag_attacks_lookup[loc];
+//         attacks &= (piece_colors[1 - side] | en_passant);
 
-    // do recursive stuff on the copy, return result back to prev function
-}
+//         bitboard step = (pawn_step_attacks_lookup[loc] & (~all_pieces));
+//         step |= (!!step) * (pawn_full_step_attacks_lookup[loc] & (~all_pieces));
+
+//         attacks |= step;
+
+//         attacks &= pawn_rank_lookup[side][loc];
+//         attacks &= ~piece_colors[side];
+
+//         for (int atk_pos = -1; attacks;)
+//         {
+//             atk_pos += next_bit(attacks);
+//             enum_square atk_loc = (enum_square)atk_pos;
+
+//             total_moves += play_move(PAWN, {loc, atk_loc}, false, in_check_before, ' ');
+//         }
+//     }
+
+//     bitboard rooks = pieces[ROOK] & piece_colors[side];
+//     // ::print(rooks);
+//     for (int current_pos = -1; rooks;)
+//     {
+//         current_pos += next_bit(rooks);
+//         enum_square loc = (enum_square)current_pos;
+
+//         bitboard attacks = 0;
+//         attacks |= rank_attacks(all_pieces, loc);
+//         attacks |= file_attacks(all_pieces, loc);
+//         attacks &= ~piece_colors[side];
+
+//         for (int atk_pos = -1; attacks;)
+//         {
+//             atk_pos += next_bit(attacks);
+//             enum_square atk_loc = (enum_square)atk_pos;
+
+//             total_moves += play_move(ROOK, {loc, atk_loc}, false, in_check_before, ' ');
+//         }
+
+//         // int attack_cnt = __builtin_popcountl(attacks);
+//         // total_moves += attack_cnt;
+//     }
+
+//     bitboard bishops = pieces[BISHOP] & piece_colors[side];
+
+//     for (int current_pos = -1; bishops;)
+//     {
+//         current_pos += next_bit(bishops);
+//         enum_square loc = (enum_square)current_pos;
+
+//         bitboard attacks = 0;
+//         attacks |= diagonal_attacks(all_pieces, loc);
+//         attacks |= anti_diagonal_attacks(all_pieces, loc);
+//         attacks &= ~piece_colors[side];
+
+//         for (int atk_pos = -1; attacks;)
+//         {
+//             atk_pos += next_bit(attacks);
+//             enum_square atk_loc = (enum_square)atk_pos;
+
+//             total_moves += play_move(BISHOP, {loc, atk_loc}, false, in_check_before, ' ');
+//         }
+//         // int attack_cnt = __builtin_popcountll(attacks);
+//         // total_moves += attack_cnt;
+//     }
+
+//     bitboard knights = pieces[KNIGHT] & piece_colors[side];
+
+//     for (int current_pos = -1; knights;)
+//     {
+//         current_pos += next_bit(knights);
+//         enum_square loc = (enum_square)current_pos;
+
+//         bitboard attacks = 0;
+//         attacks |= knight_attacks_lookup[loc];
+//         attacks &= ~piece_colors[side];
+
+//         for (int atk_pos = -1; attacks;)
+//         {
+//             atk_pos += next_bit(attacks);
+//             enum_square atk_loc = (enum_square)atk_pos;
+
+//             total_moves += play_move(KNIGHT, {loc, atk_loc}, false, in_check_before, ' ');
+//         }
+//         // int attack_cnt = __builtin_popcountll(attacks);
+//         // total_moves += attack_cnt;
+//     }
+
+//     bitboard queens = pieces[QUEEN] & piece_colors[side];
+
+//     for (int current_pos = -1; queens;)
+//     {
+//         current_pos += next_bit(queens);
+//         enum_square loc = (enum_square)current_pos;
+
+//         bitboard attacks = 0;
+//         attacks |= diagonal_attacks(all_pieces, loc);
+//         attacks |= anti_diagonal_attacks(all_pieces, loc);
+//         attacks |= rank_attacks(all_pieces, loc);
+//         attacks |= file_attacks(all_pieces, loc);
+//         attacks &= ~piece_colors[side];
+
+//         for (int atk_pos = -1; attacks;)
+//         {
+//             atk_pos += next_bit(attacks);
+//             enum_square atk_loc = (enum_square)atk_pos;
+
+//             total_moves += play_move(QUEEN, {loc, atk_loc}, false, in_check_before, ' ');
+//         }
+//         // int attack_cnt = __builtin_popcountll(attacks);
+//         // total_moves += attack_cnt;
+//     }
+
+//     bitboard kings = pieces[KING] & piece_colors[side];
+
+//     for (int current_pos = -1; kings;)
+//     {
+//         current_pos += next_bit(kings);
+//         enum_square loc = (enum_square)current_pos;
+
+//         bitboard attacks = 0;
+//         attacks |= king_attacks_lookup[loc];
+//         attacks &= ~piece_colors[side];
+
+//         for (int atk_pos = -1; attacks;)
+//         {
+//             atk_pos += next_bit(attacks);
+//             enum_square atk_loc = (enum_square)atk_pos;
+
+//             total_moves += play_move(KING, {loc, atk_loc}, false, in_check_before, ' ');
+//         }
+
+//         // int attack_cnt = __builtin_popcountll(attacks);
+//         // total_moves += attack_cnt;
+//     }
+
+//     // std::cout << "Found " << total_moves << " legal moves for side " << side << std::endl;
+//     // std::cout << "In Check: " << in_check_before << " | Checkmated: " << (in_check_before && total_moves == 0) << " | Stalemate: " << (!in_check_before && total_moves == 0) << std::endl;
+// }
+
+// // only accepts legal moves!, check if move is legal earlier, except for into check, it should deal w/ that!
+// ull chess_board::play_move(enum_piece piece_type, chess_move move, bool special, bool in_check, char promo)
+// {
+//     chess_board copy = *this;
+
+//     bool move_done = false;
+
+//     copy.en_passant = 0;
+//     enum_color side = (enum_color)(!!(copy.data & BLACK_TURN));
+//     int from_rank, to_rank;
+//     bitboard attacked;
+//     bool in_check_after;
+//     switch (piece_type)
+//     {
+//     case PAWN:
+//         from_rank = move.from >> 3;
+//         to_rank = move.to >> 3;
+//         if (std::max(from_rank, to_rank) - std::min(from_rank, to_rank) == 2)
+//             set(copy.en_passant, 1, (from_rank + to_rank) / 2, move.from & 7);
+//         switch (to_rank)
+//         {
+//         case 0:
+//         case 7:
+//             copy.clear_loc(move.to);
+//             copy.remove_piece(side, PAWN, move.from);
+//             copy.add_piece(side, QUEEN, move.to); // queen only for now
+//             move_done = true;
+
+//             attacked = copy.generate_protected_board((enum_color)(1 - side));
+//             in_check_after = attacked & (copy.pieces[KING] & copy.piece_colors[side]);
+//             return 1 - in_check_after;
+
+//             break;
+//         default:
+//             break;
+//         }
+//         break;
+//     case KNIGHT:
+//         break;
+//     case BISHOP:
+//         break;
+//     case ROOK:
+//         switch (move.from)
+//         {
+//         case a1:
+//             copy.data &= ~(CASTLE[0][1]);
+//             break;
+//         case h1:
+//             copy.data &= ~(CASTLE[0][0]);
+//             break;
+//         case a8:
+//             copy.data &= ~(CASTLE[1][1]);
+//             break;
+//         case h8:
+//             copy.data &= ~(CASTLE[1][0]);
+//             break;
+//         default:
+//             break;
+//         }
+//         break;
+//     case QUEEN:
+//         break;
+//     case KING:
+//         if (special)
+//         {
+//             switch (move.to)
+//             {
+//             case g1:
+//                 copy.remove_piece(side, ROOK, h1);
+//                 copy.add_piece(side, ROOK, f1);
+//                 break;
+//             case c1:
+//                 copy.remove_piece(side, ROOK, a1);
+//                 copy.add_piece(side, ROOK, d1);
+//                 break;
+//             case g8:
+//                 copy.remove_piece(side, ROOK, h8);
+//                 copy.add_piece(side, ROOK, f8);
+//                 break;
+//             case c8:
+//                 copy.remove_piece(side, ROOK, a8);
+//                 copy.add_piece(side, ROOK, d8);
+//                 break;
+//             default:
+//                 break;
+//             }
+//         }
+//         copy.data &= ~(CASTLE[side][0]);
+//         copy.data &= ~(CASTLE[side][1]);
+//         break;
+//     default:
+//         break;
+//     }
+
+//     if (!move_done)
+//     {
+//         copy.remove_piece(side, piece_type, move.from);
+//         copy.add_piece(side, piece_type, move.to);
+//     }
+
+//     attacked = copy.generate_protected_board((enum_color)(1 - side));
+//     in_check_after = attacked & (copy.pieces[KING] & copy.piece_colors[side]);
+//     return 1 - in_check_after;
+
+//     // copy.data ^= BLACK_TURN;
+
+//     // do recursive stuff on the copy, return result back to prev function
+// }
 
 void chess_board::play_move(std::string move) {
     assert(move.size() >= 4);

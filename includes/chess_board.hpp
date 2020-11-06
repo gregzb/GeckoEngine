@@ -42,14 +42,18 @@ class chess_board {
     void print();
 
     bitboard generate_protected_board(enum_color side);
+    bool king_in_check(enum_color side);
     void iterate_over_moves();
+
+    ull play_regular_attacks(enum_piece pt, enum_square loc, bitboard attacks, bool in_check);
+    ull play_regular_move(enum_piece pt, chess_move move, bool in_check);
 
     // move_info find_best_move(int remaining_plies);
     // //if remaining is 0, static eval
     // //else, recursion
 
     // make another function to play move from one position to another for more general piece playing, and accept PGN/FEN
-    ull play_move(enum_piece piece_type, chess_move move, bool special, bool in_check, char promo);
+    // ull play_move(enum_piece piece_type, chess_move move, bool special, bool in_check, char promo);
 
     void play_move(std::string move);
 };
