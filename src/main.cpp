@@ -121,6 +121,7 @@ int handle_uci_input() {
 
         }
     }
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -132,25 +133,27 @@ int main(int argc, char **argv)
     
     // std::string fen = "";
 
-    std::string fen = "r3kb1r/ppp1pppp/3q1n2/3PN3/3QP3/2N5/PPP2PPP/R3K2R b KQkq - 2 11";
+    std::string fen = "r2q1rk1/p2n1ppp/2p5/8/4QN2/3nP3/PP3PPP/R1B2RK1 b - - 0 17";
+    // std::string fen = "8/8/8/8/8/8/8/4K2R w K - 0 1";
 
     // std::cout << "1 " << std::endl;
 
-    chess_board chess;
+    chess_board chess(fen);
     // std::cout << "2 " << std::endl;
     chess.print();
+    std::cout << chess.evaluate() << std::endl;
 
-    int times_to_gen = 1'000'000;
+    // int times_to_gen = 1'000'000;
 
-    auto start = std::chrono::steady_clock::now();
-    for (int i = 0; i < times_to_gen; i++) {
-        chess.iterate_over_moves();
-    }
-    auto end = std::chrono::steady_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    std::cout << "took: " << elapsed_seconds.count() << "s to generate moves " << times_to_gen << " times" << std::endl;
+    // auto start = std::chrono::steady_clock::now();
+    // for (int i = 0; i < times_to_gen; i++) {
+    //     chess.iterate_over_moves();
+    // }
+    // auto end = std::chrono::steady_clock::now();
+    // std::chrono::duration<double> elapsed_seconds = end-start;
+    // std::cout << "took: " << elapsed_seconds.count() << "s to generate moves " << times_to_gen << " times" << std::endl;
 
-    // chess.iterate_over_moves();
+    chess.iterate_over_moves();
 
     return 0;
 }

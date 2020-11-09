@@ -8,6 +8,7 @@
 # include "utils.hpp"
 
 extern bitboard CASTLE[2][2];
+extern bitboard CASTLE_SIDE[2];
 extern bitboard CASTLE_CHECK[2][2];
 extern bitboard CASTLE_IN_BETWEEN[2][2];
 extern bitboard BLACK_TURN;
@@ -41,12 +42,23 @@ class chess_board {
     void clear_loc(enum_square location);
     void print();
 
-    bitboard generate_protected_board(enum_color side);
+    bitboard generate_protected_board(enum_color side) const;
     bool king_in_check(enum_color side);
     void iterate_over_moves();
 
     ull play_regular_attacks(enum_piece pt, enum_square loc, bitboard attacks, bool in_check);
     ull play_regular_move(enum_piece pt, chess_move move, bool in_check);
+    ull play_castle(int dir);
+    ull play_pawn_jump(chess_move move, enum_square intermediary);
+    ull play_en_passant(chess_move move);
+    ull play_pawn_promotions(enum_square loc, bitboard attacks, bool in_check);
+    ull play_pawn_promotion(chess_move move, enum_piece pt, bool in_check);
+    ull play_king_attacks(enum_square loc, bitboard attacks, bool in_check);
+    ull play_king_attack(chess_move move, bool in_check);
+    ull play_rook_attacks(enum_square loc, bitboard attacks, bool in_check);
+    ull play_rook_attack(chess_move move, bool in_check);
+
+    float evaluate() const;
 
     // move_info find_best_move(int remaining_plies);
     // //if remaining is 0, static eval

@@ -33,7 +33,10 @@ void populate_king_attacks();
 extern bitboard pawn_diag_attacks_lookup[64];
 extern bitboard pawn_step_attacks_lookup[64];
 extern bitboard pawn_full_step_attacks_lookup[64];
+extern bitboard pawn_second_step_attacks_lookup[64];
 extern bitboard pawn_rank_lookup[2][64];
 void populate_pawn_attacks();
 
 void precalculate();
+
+bitboard rank_lookup(int rank);

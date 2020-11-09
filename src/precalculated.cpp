@@ -213,6 +213,7 @@ void populate_king_attacks()
 bitboard pawn_diag_attacks_lookup[64];
 bitboard pawn_step_attacks_lookup[64];
 bitboard pawn_full_step_attacks_lookup[64];
+bitboard pawn_second_step_attacks_lookup[64];
 bitboard pawn_rank_lookup[2][64];
 
 void populate_pawn_attacks()
@@ -236,15 +237,19 @@ void populate_pawn_attacks()
         pawn_diag_attacks_lookup[i] = diag_tmp;
 
         bitboard step_tmp = 0;
+        bitboard temp2 = 0;
         set(step_tmp, 1, rank + 1, file);
         set(step_tmp, 1, rank - 1, file);
         pawn_step_attacks_lookup[i] = step_tmp;
         if (rank == 1 || rank == 6)
         {
             set(step_tmp, 1, rank + 2, file);
+            set(temp2, 1, rank + 2, file);
             set(step_tmp, 1, rank - 2, file);
+            set(temp2, 1, rank - 2, file);
         }
         pawn_full_step_attacks_lookup[i] = step_tmp;
+        pawn_second_step_attacks_lookup[i] = temp2;
 
         bitboard rank_white = 0;
         for (int i = 0; i < 8; i++)
@@ -280,4 +285,9 @@ void precalculate() {
     populate_knight_attacks();
     populate_king_attacks();
     populate_pawn_attacks();
+}
+
+bitboard rank_lookup(int rank) {
+    bitboard first_rank = 0b11111111;
+    return first_rank << (rank*8);
 }
