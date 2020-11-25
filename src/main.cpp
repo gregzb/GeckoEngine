@@ -133,27 +133,35 @@ int main(int argc, char **argv)
     
     // std::string fen = "";
 
-    std::string fen = "r2q1rk1/p2n1ppp/2p5/8/4QN2/3nP3/PP3PPP/R1B2RK1 b - - 0 17";
+    std::string fen = "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2";
     // std::string fen = "8/8/8/8/8/8/8/4K2R w K - 0 1";
 
     // std::cout << "1 " << std::endl;
 
-    chess_board chess(fen);
+    chess_board chess;
     // std::cout << "2 " << std::endl;
     chess.print();
     std::cout << chess.evaluate() << std::endl;
 
-    // int times_to_gen = 1'000'000;
+    // chess.iterate_over_moves();
+    std::vector<chess_board> moves;
+    // moves.reserve(40);
 
-    // auto start = std::chrono::steady_clock::now();
+    // start = std::chrono::steady_clock::now();
     // for (int i = 0; i < times_to_gen; i++) {
-    //     chess.iterate_over_moves();
+    //     chess.generate_legal_moves(moves);
+    //     moves.clear();
     // }
-    // auto end = std::chrono::steady_clock::now();
-    // std::chrono::duration<double> elapsed_seconds = end-start;
+    // end = std::chrono::steady_clock::now();
+    // elapsed_seconds = end-start;
     // std::cout << "took: " << elapsed_seconds.count() << "s to generate moves " << times_to_gen << " times" << std::endl;
+    chess.generate_legal_moves(moves);
+    std::cout << moves.size() << std::endl;
 
-    chess.iterate_over_moves();
+    // auto val = chess.minimax(1, -std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity());
+    auto val = chess.perft(3);
+    std::cout << val << std::endl;
+    // chess.iterate_over_moves();
 
     return 0;
 }

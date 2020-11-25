@@ -4,6 +4,7 @@
 # include <string>
 # include <vector>
 # include <string>
+# include <functional>
 
 # include "utils.hpp"
 
@@ -32,6 +33,8 @@ class chess_board {
     unsigned char data;
     unsigned char ply_ctr;
 
+    std::string info = "";
+
     void init();
 
     public:
@@ -44,21 +47,18 @@ class chess_board {
 
     bitboard generate_protected_board(enum_color side) const;
     bool king_in_check(enum_color side);
-    void iterate_over_moves();
 
-    ull play_regular_attacks(enum_piece pt, enum_square loc, bitboard attacks, bool in_check);
-    ull play_regular_move(enum_piece pt, chess_move move, bool in_check);
-    ull play_castle(int dir);
-    ull play_pawn_jump(chess_move move, enum_square intermediary);
-    ull play_en_passant(chess_move move);
-    ull play_pawn_promotions(enum_square loc, bitboard attacks, bool in_check);
-    ull play_pawn_promotion(chess_move move, enum_piece pt, bool in_check);
-    ull play_king_attacks(enum_square loc, bitboard attacks, bool in_check);
-    ull play_king_attack(chess_move move, bool in_check);
-    ull play_rook_attacks(enum_square loc, bitboard attacks, bool in_check);
-    ull play_rook_attack(chess_move move, bool in_check);
+    void try_attacks(enum_piece pt, enum_square loc, bitboard attacks, std::vector<chess_board> & boards, std::function<void(chess_board &, chess_move & move)> action);
+    void try_promotions(enum_square loc, bitboard attacks, std::vector<chess_board> & boards);
+    void try_attack(enum_piece pt, chess_move move, std::vector<chess_board> & boards, std::function<void(chess_board &, chess_move & move)> action);
+    void try_castle(int dir, std::vector<chess_board> & boards);
 
-    float evaluate() const;
+    void generate_legal_moves(std::vector<chess_board> & boards);
+
+    float evaluate();
+
+    float minimax(int depth, float alpha, float beta);
+    ull perft(int depth);
 
     // move_info find_best_move(int remaining_plies);
     // //if remaining is 0, static eval
